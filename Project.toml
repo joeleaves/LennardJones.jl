@@ -3,6 +3,9 @@ uuid = "25554a8e-05c9-411c-9e60-48f3ce0dd2d5"
 authors = ["joeleaves <joel.eaves@colorado.edu> and contributors"]
 version = "0.1.0"
 
+[deps]
+Parameters = "d96e819e-fc66-5662-9728-84c9c7592b0a"
+
 [compat]
 julia = "1"
 
