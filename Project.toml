@@ -4,6 +4,7 @@ authors = ["joeleaves <joel.eaves@colorado.edu> and contributors"]
 version = "0.1.0"
 
 [deps]
+DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
 Parameters = "d96e819e-fc66-5662-9728-84c9c7592b0a"
 
 [compat]

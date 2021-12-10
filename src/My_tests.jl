@@ -1,6 +1,4 @@
 using LennardJones
-using Test
-
 
 function CheckLattice(md::MD)
     nside = round( (md.n)^(1.0/3.0) );
@@ -21,8 +19,4 @@ function CheckLattice(md::MD)
         end
     end
     return sqrt(min_d2) ≈ a;
-end
-
-@testset "LennardJones.jl" begin
-    @test CheckLattice( MD() );#Check the lattice spacing.
 end

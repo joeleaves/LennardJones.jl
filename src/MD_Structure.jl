@@ -1,6 +1,8 @@
 #Structure for MD Simulations
 module MD_Structure
 
+export MD, CalculateForces!
+
 using Parameters
 using Random
 
@@ -8,12 +10,12 @@ using Random
     n::Int64;
     ρ::Float64;
     T::Float64;
+    L::Float64;
 end
 
 mutable struct MD
     p::Params;
     n::Int64;
-    L::Float64;
     r::Matrix{Float64};
     v::Matrix{Float64};
     f::Matrix{Float64};
@@ -21,36 +23,34 @@ mutable struct MD
     potential_energy::Float64;
     total_energy::Float64;
     function MD()
-        p_ = Params( n=1000, ρ=0.8, T=1.0 );#Default constructor: n = 1000, ρ = 0.8, T = 1.0.
-        n_ = p_.n;
-        ρ_ = p_.ρ;
+        n_ = 1000;
+        ρ_ = 0.8;
+        T_ = 1.0;
         L_ = (n_/ρ_)^(1.0/3.0);
+        p_ = Params( n = n_, ρ = ρ_, T = T_, L = L_);#Default constructor: n = 1000, ρ = 0.8, T = 1.0.
         r_ = Matrix{Float64}(undef,3,n_);#Column-major order
         v_ = Matrix{Float64}(undef,3,n_);
         f_ = Matrix{Float64}(undef,3,n_);
-        this = new(p_,p_.n,L_,r_,v_,f_,0.0,0.0,0.0);
+        this = new(p_,p_.n,r_,v_,f_,0.0,0.0,0.0);
         Initalize!(this);
         return this;
     end
     function MD(params)
         p_ = params;#Call it with parameters defined elsewhere
         n_ = p_.n;
-        ρ_ = p_.ρ;
-        L_ = (n_/ρ_)^(1.0/3.0);
         r_ = Matrix{Float64}(undef,3,n_);
         v_ = Matrix{Float64}(undef,3,n_);
         f_ = Matrix{Float64}(undef,3,n_);
-        this = new(p_,p_.n,L_,r_,v_,f_,0.0,0.0,0.0);
+        this = new(p_,p_.n,r_,v_,f_,0.0,0.0,0.0);
         Initalize!(this);
         return this;
     end
 end
 
 function Initalize!(md::MD)
-    n = md.n;
+    @unpack n,L,T = md.p;
     nside = round(n^(1.0/3.0));
-    a = md.L/nside;
-    T = md.p.T;
+    a = L/nside;
     xhat = [1, 0, 0];#Column vectors for cardinal directions
     yhat = [0, 1, 0];
     zhat = [0, 0, 1];
@@ -91,21 +91,19 @@ function Thermalize!(md::MD)
 end
 
 function CalculateForces!(md::MD)
-    md.f .= 0.0;
-    n = md.n;
-    L = md.L;
+    md.f .= 0.0; fij = 0.0; vij = 0.0; d2 = 0.0;
+    @unpack n,L = md.p;
     Linv = 1.0/L;
-    rij = zeros(3);
-    fij = 0.0;
-    vij = 0.0;
-    d2 = 0.0;
     d2cut = 2.5*2.5;
-    v = r -> 4*(r^(-12) - r^(-6));
-    vcut = v(d2cut);
+    v = r -> 4.0*( r^(-12) - r^(-6) );
+    vcut = v(2.5);
+    ri = zeros(3); rj = zeros(3); rij = zeros(3);
     function potential_and_force(d2)
         d2_inv = 1.0/d2;
         d6_inv = d2_inv*d2_inv*d2_inv;
-        return 48.0*(d6_inv*d6_inv - 0.5*d6_inv)*d2_inv, (4.0*(d6_inv*d6_inv - d6_inv) - vcut);
+        Fij = 48.0*(d6_inv*d6_inv - 0.5*d6_inv)*d2_inv;
+        Vij = 4.0*(d6_inv*d6_inv - d6_inv) - vcut;
+        return Fij, Vij;
     end
     md.potential_energy = 0.0;
     for i in 1:(n-1)
@@ -113,12 +111,12 @@ function CalculateForces!(md::MD)
         for j in (i+1):n
             rj = md.r[:,j];
             rij .= ri .- rj;
-            rij .-= L*round.(rij*Linv);
+            rij .-= L.*round.(rij*Linv);
             d2 = sum(rij.*rij);
-            if d2 < 6.25
+            if d2 <= d2cut;
                 fij,vij = potential_and_force(d2);
-                md.f[:,i] += fij*rij;
-                md.f[:,j] -= fij*rij;
+                md.f[:,i] += fij.*rij;
+                md.f[:,j] -= fij.*rij;
                 md.potential_energy += vij;
             end
         end
